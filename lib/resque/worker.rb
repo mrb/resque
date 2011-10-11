@@ -1,4 +1,52 @@
 module Resque
+  class Supervisor
+    PRE_FORKS = 3
+
+    def initialize
+      $0 = "Resque Supervisor"
+      @workers = []
+    end
+
+    def spawn_worker
+      worker = Resque::Worker.new
+      @workers << worker
+      worker.work(ENV['INTERVAL'] || 5)
+    end
+
+    def spawn_workers
+      while @workers.length < (PRE_FORKS+1)
+        spawn_worker
+      end
+    end
+
+    def watch_workers
+      loop{
+        Signal.trap('CLD') {
+          begin
+            @workers.delete(find_worker_by_pid(Process.wait))
+          rescue Errno::ECHILD
+          end
+          spawn_worker
+        }
+        logger.info "Supervisor #{Process.pid}: #{@workers.length} Workers"
+        spawn_workers if @workers.length < PRE_FORKS
+        sleep 1
+      }
+    end
+
+    def find_worker_by_pid(pid)
+      @workers.select{|w| w.child == pid}[0]
+    end
+
+    def logger
+      @logger ||= Logger.new(STDOUT)
+    end
+
+    def to_s
+      "#<Supervisor:#{self.object_id} @workers=#{@workers}>"
+    end
+  end
+
   # A Resque Worker processes jobs. On platforms that support fork(2),
   # the worker will fork off a child to process each job. This ensures
   # a clean slate when beginning the next job and cuts down on gradual
@@ -134,6 +182,7 @@ module Resque
           if @child = fork
             srand # Reseeding
             procline "Forked #{@child} at #{Time.now.to_i}"
+            $0 = "Resque Worker"
             Process.wait
           else
             procline "Processing #{job.queue} since #{Time.now.to_i}"

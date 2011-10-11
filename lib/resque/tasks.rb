@@ -11,9 +11,12 @@ namespace :resque do
     queues = (ENV['QUEUES'] || ENV['QUEUE']).to_s.split(',')
 
     begin
-      worker = Resque::Worker.new(*queues)
-      worker.verbose = ENV['LOGGING'] || ENV['VERBOSE']
-      worker.very_verbose = ENV['VVERBOSE']
+      #worker = Resque::Worker.new(*queues)
+      supervisor = Resque::Supervisor.new
+      supervisor.spawn_workers
+      supervisor.watch_workers
+      #worker.verbose = ENV['LOGGING'] || ENV['VERBOSE']
+      #worker.very_verbose = ENV['VVERBOSE']
     rescue Resque::NoQueueError
       abort "set QUEUE env var, e.g. $ QUEUE=critical,high rake resque:work"
     end
@@ -25,11 +28,11 @@ namespace :resque do
       Process.daemon(true)
     end
 
-    if ENV['PIDFILE']
-      File.open(ENV['PIDFILE'], 'w') { |f| f << worker.pid }
-    end
+    #if ENV['PIDFILE']
+    #  File.open(ENV['PIDFILE'], 'w') { |f| f << worker.pid }
+    #end
 
-    worker.log "Starting worker #{worker}"
+    #worker.log "Starting worker #{worker}"
 
     worker.work(ENV['INTERVAL'] || 5) # interval, will block
   end
