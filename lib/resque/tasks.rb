@@ -8,8 +8,6 @@ namespace :resque do
   task :work => [ :preload, :setup ] do
     require 'resque'
 
-    queues = (ENV['QUEUES'] || ENV['QUEUE']).to_s.split(',')
-
     begin
       #worker = Resque::Worker.new(*queues)
       supervisor = Resque::Supervisor.new
@@ -17,8 +15,6 @@ namespace :resque do
       supervisor.watch_workers
       #worker.verbose = ENV['LOGGING'] || ENV['VERBOSE']
       #worker.very_verbose = ENV['VVERBOSE']
-    rescue Resque::NoQueueError
-      abort "set QUEUE env var, e.g. $ QUEUE=critical,high rake resque:work"
     end
 
     if ENV['BACKGROUND']
